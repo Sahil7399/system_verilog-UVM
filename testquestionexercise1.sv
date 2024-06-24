@@ -30,15 +30,15 @@ endclass
 
 module tb();
   
-  exercise1 e;
+  exercise1 e1;
   exercise2 e2;
   
   initial begin
     
-    e = new();
+    e1 = new();
     e2 = new();
     assert(e.randomize()) else $error("Randomization Failed");
-    e.display();
+    e1.display();
     
     e2.c1.constraint_mode(0);
     

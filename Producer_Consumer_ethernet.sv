@@ -8,7 +8,7 @@ class ethernetpacket;
 
   function new();
     
-    $display("preamble : %0d DA : %0d SA : %0d sfd : %0d length : %0d data : %0d crc : %0d", preamble,DA,SA, sfd, length, data, crc);
+    $display("destination : %0d source: %0d length : %0d data : %0d crc : %0d", destination, source, length,payload);
     
   endfunction
   

@@ -1,1 +1,28 @@
+program automatic simpe_test:
+import uvm_pkg ;
+`include "uvm_macros.svh"
+
+module hello_world;
+  initial begin
+    $display("Hello, World!");
+    $finish;
+  end
+endmodule
+
+class hello_world_test extends uvm_test;
+  `uvm_component_utils(hello_world_test)
+
+  function new(string name = "hello_world_test", uvm_component parent);
+    super.new(name, parent);
+  endfunction
+
+  task run_phase(uvm_phase phase);
+    `uvm_info(get_type_name(), "Hello, World!", UVM_LOW)
+  endtask
+endclass
+endprogram
+module top;
+  hello_world hello_world_inst();
+  initial run_test("hello_world_test");
+endmodule
 

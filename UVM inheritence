@@ -1,0 +1,28 @@
+class my_derived_driver extends my_base_driver;
+
+  // Constructor
+  function new(string name, uvm_component parent);
+    super.new(name, parent);
+  endfunction
+
+  // Override the run_phase method
+  virtual task run_phase(uvm_phase phase);
+    // Call the base class run_phase
+    super.run_phase(phase);
+    // Additional functionality
+    `uvm_info("MY_DERIVED_DRIVER", "Running derived driver", UVM_LOW)
+  endtask
+
+endclass
+testbench
+module my_testbench;
+
+  initial begin
+    // Create an instance of the derived driver
+    my_derived_driver driver = my_derived_driver::type_id::create("driver", null);
+
+    // Run the simulation
+    uvm_root::get().run_test();
+  end
+
+endmodule

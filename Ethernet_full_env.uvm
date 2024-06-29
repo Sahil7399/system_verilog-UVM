@@ -1,0 +1,133 @@
+`include "uvm_macros.svh"
+import uvm_pkg :: *;
+
+class ethernet_packet extends uvm_sequence_packet;
+
+  rand bit [7:0] destination;
+  rand bit [7:0] source;
+  rand bit [15:0] ethertype;
+  rand bit [7:0] payload ; 
+  rand bit [31:0] crc;
+
+  `uvm_object_utils_begin(ethernet_packet)
+    `uvm_field_int(destination, UVM_ALL_ON)
+    `uvm_field_int(source, UVM_ALL_ON)
+    `uvm_field_int(ethertype, UVM_ALL_ON)
+    `uvm_field_array_int(payload, UVM_ALL_ON)
+    `uvm_field_int(crc, UVM_ALL_ON)
+  `uvm_object_utils_end
+
+  function new(string name = "ethernet_packet");
+    super.new(name);
+  endfunction
+
+endclass
+//sequence
+class sequence_class extends uvm_sequence#(ethernet_packet);
+  
+  `uvm_object_utils(sequence_class)
+  
+  ethernet_packet e1;
+  
+  function new(string name = "sequence_class");
+    super.new(name);
+  endfunction
+ 
+  virtual task body();
+    
+    e1 = ethernet_packet :: type_id :: create("e1");
+    start_item(e1);
+    assert(e1.randomize()) else `uvm_error("sequence1", "Randomization Failed");
+    `uvm_info("sequence1", "Data Sent : ", UVM_NONE);
+    e1.print();
+    finish_item(e1);
+  endtask
+endclass
+class sequencer extends uvm_sequencer#(ethernet_packet);
+  
+  `uvm_sequencer_utils(sequencer)
+  
+  function new(string name = "sequencer", uvm_component parent);
+    super.new(name, parent);  
+  	`uvm_update_sequence_lib_and_item(ethernet_packet)
+  endfunction
+
+endclass
+//driver
+class driver extends uvm_driver#(ethernet_packet);
+  
+  `uvm_component_utils(driver)
+  
+  ethernet e1;
+  
+  function new(string name = "driver", uvm_component parent);
+    super.new(name,parent);
+  endfunction
+  
+  virtual function void build_phase(uvm_phase phase);
+    super.build_phase(phase);
+    e1 = ethernet_packet :: type_id :: create("e1"); 
+  endfunction
+  
+  virtual task run_phase(uvm_phase phase);
+    
+    forever begin
+      
+      seq_item_port.get_next_item(e1);
+      `uvm_info("driver", "Data Recieved : ", UVM_NONE);
+      e1.print();
+      seq_item_port.item_done();
+      
+    end
+    
+  endtask
+  
+endclass
+// envirnment
+class ethernet_packet extends uvm_env;
+
+  `uvm_component_utils(ethernet_packet)
+
+  ethernet_driver driver;
+  ethernet_sequencer sequencer;
+
+  function new(string name, uvm_component parent);
+    super.new(name, parent);
+  endfunction
+
+  virtual function void build_phase(uvm_phase phase);
+    super.build_phase(phase);
+    driver = ethernet_driver::type_id::create("driver", this);
+    sequencer = ethernet_sequencer::type_id::create("sequencer", this);
+  endfunction
+
+  virtual function void connect_phase(uvm_phase phase);
+    super.connect_phase(phase);
+    driver.seq_item_port.connect(sequencer.seq_item_export);
+  endfunction
+
+endclass
+class ethernet_packet_test extends uvm_test;
+
+  `uvm_component_utils(ethernet_packet_test)
+
+  ethernet_packet env;
+
+  function new(string name, uvm_component parent);
+    super.new(name, parent);
+  endfunction
+
+  virtual function void build_phase(uvm_phase phase);
+    super.build_phase(phase);
+    env = ethernet_env::type_id::create("env", this);
+  endfunction
+
+  virtual task run_phase(uvm_phase phase);
+    ethernet_sequence seq;
+    phase.raise_objection(this);
+    seq = ethernet_sequence::type_id::create("seq");
+    seq.start(env.sequencer);
+    phase.drop_objection(this);
+  endtask
+
+endclass

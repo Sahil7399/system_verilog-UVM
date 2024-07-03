@@ -1,0 +1,165 @@
+`include "uvm_macros.svh"
+import uvm_pkg :: *;
+class ethernetpacket extends uvm_sequence_item;
+function new(string name = "ethernetpacket");
+  super.new(name);
+endfunction
+rand bit [3:0] SA;
+rand bit [3:0] DA;
+rand bit [7:0] data;
+rand int darray[];
+
+constraint darr {
+  darray.size inside {[0:10]}; 
+  
+  foreach (darray[i])
+    darray[i] inside {[0 : 100]};
+}
+
+`uvm_object_utils_begin(ethernet)
+
+`uvm_field_int(SA, UVM_DEFAULT | UVM_DEC);
+`uvm_field_int(DA, UVM_DEFAULT | UVM_DEC);
+`uvm_field_int(data, UVM_DEFAULT | UVM_DEC);
+`uvm_field_array_int(darray, UVM_DEFAULT | UVM_DEC);
+
+`uvm_object_utils_end
+class sequence1 extends uvm_sequence#(ethernetpacket);
+`uvm_object_utils(sequence1)
+ethernetpacket e1;
+function new(string name = "sequence1");
+  super.new(name);
+endfunction
+virtual task body();
+    
+  e1 = ethernetpacket :: type_id :: create("e1");
+  start_item(e1);
+  assert(e1.randomize()) else `uvm_error("sequence1", "Randomization Failed");
+  `uvm_info("sequence1", "Data Sent : ", UVM_LOW);
+  e1.print();
+  finish_item(e1);
+    
+endtask
+
+
+
+class sequencer extends uvm_sequencer#(ethernet);
+  
+  // Registers the sequencer class with UVM for automation
+  `uvm_sequencer_utils(sequencer)
+  
+  // Constructor
+  function new(string name = "sequencer", uvm_component parent = null);
+    // Calls the base class constructor
+    super.new(name, parent);  
+    // Updates the sequence library and item type with ethernet
+    `uvm_update_sequence_lib_and_item(ethernet)
+  endfunction
+
+
+
+endclass
+class driver extends uvm_driver#(ethernet);
+  
+  // Registers the driver class with UVM for automation
+  `uvm_component_utils(driver)
+  
+  // Declares a variable to hold Ethernet transactions
+  ethernet e1;
+  
+  // Constructor
+  function new(string name = "driver", uvm_component parent = null);
+    // Calls the base class constructor
+    super.new(name, parent);
+  endfunction
+  
+  // Build phase function
+  virtual function void build_phase(uvm_phase phase);
+    // Calls the base class build phase
+    super.build_phase(phase);
+    // Creates an instance of the Ethernet transaction
+    e1 = ethernet :: type_id :: create("e1"); 
+  endfunction
+  
+  // Run phase task
+  virtual task run_phase(uvm_phase phase);
+    // Infinite loop to process transactions
+    forever begin
+      // Retrieves the next transaction from the sequencer
+      seq_item_port.get_next_item(e1);
+      // Prints an informational message
+      `uvm_info("driver", "Data Recieved : ", UVM_LOW);
+      // Prints the contents of the transaction
+      e1.print();
+      // Notifies the sequencer that the transaction is done
+      seq_item_port.item_done();
+    end
+  endtask
+endclass
+
+
+class env extends uvm_env;
+  `uvm_component_utils(env);
+  agent a;
+  function new(string name = "env", uvm_component parent = null);
+    super.new(name, parent);
+  endfunction 
+  virtual function void build_phase(uvm_phase phase);
+    super.build_phase(phase);
+    a = agent::type_id::create("a", this);
+  endfunction
+endclass
+
+
+
+
+class test extends uvm_test;
+  
+  `uvm_component_utils(test)
+  
+  env e;
+  sequence1 s1;
+  
+  function new(string name = "test", uvm_component parent = null);
+    super.new(name, parent);
+  endfunction
+  
+  virtual function void build_phase(uvm_phase phase);
+    super.build_phase(phase);
+    e = env::type_id::create("e", this);
+    s1 = sequence1::type_id::create("s1");
+  endfunction
+  
+  virtual task run_phase(uvm_phase phase);
+    phase.raise_objection(this);
+    s1.start(e.a.seq);
+    phase.drop_objection(this);
+  endtask
+  
+endclass
+
+
+
+
+
+module tb_top;
+  
+  ether_if eif();
+  
+  initial begin
+    uvm_config_db #(virtual ether_if) :: set (null,"uvm_test_top.e.a*","eif",eif);
+    uvm_top.set_report_verbosity_level(UVM_LOW);
+    run_test("test");
+    
+  end
+  
+endmodule
+
+    //design or interface
+interface ether_if;
+  
+  logic [3:0] SA,
+  logic [3:0]DA;
+  logic [7:0] data;
+  
+endinterface

@@ -1,0 +1,327 @@
+module full_adder(full_adder_if full_adder_if_inst);
+
+  always_comb begin
+    full_adder_if_inst.sum = full_adder_if_inst.a ^ full_adder_if_inst.b ^ full_adder_if_inst.cin;
+    full_adder_if_inst.cout = (full_adder_if_inst.a & full_adder_if_inst.b) | 
+                              (full_adder_if_inst.a & full_adder_if_inst.cin) |
+                              (full_adder_if_inst.b & full_adder_if_inst.cin);
+  end
+
+endmodule
+interface full_adder_if;
+
+  logic a;
+  logic b;
+  logic cin;
+  logic sum;
+  logic cout;
+  
+  modport full_adder_ports (
+    input a, b, cin,
+    output sum, cout
+  );
+  
+  modport tb_ports (
+    output a, b, cin,
+    input sum, cout
+  );
+
+endinterface
+
+
+
+
+`include "uvm_macros.svh"
+import uvm_pkg::*;
+
+class full_adder_transaction extends uvm_sequence_item;
+
+  `uvm_object_utils(full_adder_transaction)
+
+  rand bit a;
+  rand bit b;
+  rand bit cin;
+  bit sum;
+  bit cout;
+
+  function new(string name = "full_adder_transaction");
+    super.new(name);
+  endfunction
+ 
+  // constraint valid_values { a inside {0,1}; b inside {0,1}; cin inside {0,1}; }
+  virtual function void do_print(uvm_printer printer);
+    super.do_print(printer);
+  endfunction
+  `uvm_field_int(a,UVM_DEFAULT | UVM_DEC);
+  `uvm_field_int(b,UVM_DEFAULT | UVM_DEC);
+  `uvm_field_int(c,UVM_DEFAULT | UVM_DEC);
+  `uvm_field_int(d,UVM_DEFAULT | UVM_DEC);
+  `uvm_field_int(sel,UVM_DEFAULT | UVM_DEC);
+  `uvm_field_int(y,UVM_DEFAULT | UVM_DEC);
+
+  `uvm_object_utils_end;
+endclass
+
+
+
+
+
+class full_adder_sequence extends uvm_sequence#(full_adder_transaction);
+
+  `uvm_object_utils(full_adder_sequence)
+
+  function new(string name = "full_adder_sequence");
+    super.new(name);
+  endfunction
+
+  virtual task body();
+    full_adder_transaction tr;
+    
+    // Generate multiple transactions
+    repeat (10) begin
+      tr = full_adder_transaction::type_id::create("tr");
+      start_item(tr);
+      assert(tr.randomize()) else `uvm_error("full_adder_sequence", "Randomization failed");
+      finish_item(tr);
+      
+      `uvm_info("full_adder_sequence", $sformatf("Generated transaction: a=%0b, b=%0b, cin=%0b, sum=%0b, cout=%0b", 
+                  tr.a, tr.b, tr.cin, tr.sum, tr.cout), UVM_LOW);
+    end
+  endtask
+
+endclass
+
+`include "uvm_macros.svh"
+import uvm_pkg::*;
+
+class full_adder_driver extends uvm_driver#(full_adder_transaction);
+
+  `uvm_component_utils(full_adder_driver)
+
+  full_adder_if full_adder_if_inst;
+
+  function new(string name = "full_adder_driver", uvm_component parent = null);
+    super.new(name, parent);
+  endfunction
+
+  virtual function void build_phase(uvm_phase phase);
+    super.build_phase(phase);
+    if (!uvm_config_db#(virtual full_adder_if)::get(this, "", "vif", full_adder_if_inst)) begin
+      `uvm_fatal("NOVIF", "Virtual interface not set for: " + get_full_name())
+    end
+  endfunction
+
+  virtual task run_phase(uvm_phase phase);
+    forever begin
+      full_adder_transaction tr;
+      seq_item_port.get_next_item(tr);
+      
+      // Drive the inputs to the DUT
+      full_adder_if_inst.a = tr.a;
+      full_adder_if_inst.b = tr.b;
+      full_adder_if_inst.cin = tr.cin;
+      
+      // Wait for a clock cycle or evaluate combinational logic
+      #1; // assuming combinational logic
+      
+      // Capture the outputs from the DUT
+      tr.sum = full_adder_if_inst.sum;
+      tr.cout = full_adder_if_inst.cout;
+      
+      `uvm_info("full_adder_driver", $sformatf("Drove transaction: a=%0b, b=%0b, cin=%0b, sum=%0b, cout=%0b", 
+                  tr.a, tr.b, tr.cin, tr.sum, tr.cout), UVM_LOW);
+      
+      seq_item_port.item_done();
+    end
+  endtask
+
+endclass
+
+
+`include "uvm_macros.svh"
+import uvm_pkg::*;
+
+class full_adder_monitor extends uvm_monitor;
+
+  `uvm_component_utils(full_adder_monitor)
+
+  virtual full_adder_if full_adder_if_inst;
+  uvm_analysis_port#(full_adder_transaction) ap;
+
+  function new(string name, uvm_component parent);
+    super.new(name, parent);
+  endfunction
+
+  virtual function void build_phase(uvm_phase phase);
+    super.build_phase(phase);
+    if (!uvm_config_db#(virtual full_adder_if)::get(this, "", "vif", full_adder_if_inst)) begin
+      `uvm_fatal("NOVIF", "Virtual interface not set for: " + get_full_name())
+    end
+    ap = new("ap", this);
+  endfunction
+
+  virtual task run_phase(uvm_phase phase);
+    full_adder_transaction tr;
+    forever begin
+      tr = full_adder_transaction::type_id::create("tr");
+      @(posedge full_adder_if_inst.clk);
+      tr.a = full_adder_if_inst.a;
+      tr.b = full_adder_if_inst.b;
+      tr.cin = full_adder_if_inst.cin;
+      tr.sum = full_adder_if_inst.sum;
+      tr.cout = full_adder_if_inst.cout;
+      ap.write(tr);
+      `uvm_info("full_adder_monitor", $sformatf("Observed transaction: a=%0b, b=%0b, cin=%0b, sum=%0b, cout=%0b", 
+                  tr.a, tr.b, tr.cin, tr.sum, tr.cout), UVM_LOW);
+    end
+  endtask
+
+endclass
+
+`include "uvm_macros.svh"
+import uvm_pkg::*;
+
+class full_adder_scoreboard extends uvm_scoreboard;
+
+  `uvm_component_utils(full_adder_scoreboard)
+
+  uvm_analysis_imp#(full_adder_transaction, full_adder_scoreboard) analysis_imp;
+
+  function new(string name, uvm_component parent);
+    super.new(name, parent);
+    analysis_imp = new("analysis_imp", this);
+  endfunction
+
+  virtual function void write(full_adder_transaction tr);
+    bit expected_sum;
+    bit expected_cout;
+    
+    // Compute expected values
+    {expected_cout, expected_sum} = tr.a + tr.b + tr.cin;
+    
+    if (tr.sum !== expected_sum || tr.cout !== expected_cout) begin
+      `uvm_error("full_adder_scoreboard", $sformatf("Mismatch: a=%0b, b=%0b, cin=%0b, sum=%0b (expected: %0b), cout=%0b (expected: %0b)", 
+                  tr.a, tr.b, tr.cin, tr.sum, expected_sum, tr.cout, expected_cout))
+    end else begin
+      `uvm_info("full_adder_scoreboard", $sformatf("Correct: a=%0b, b=%0b, cin=%0b, sum=%0b, cout=%0b", 
+                  tr.a, tr.b, tr.cin, tr.sum, tr.cout), UVM_LOW);
+    end
+  endfunction
+
+endclass
+
+
+class full_adder_agent extends uvm_agent;
+
+  `uvm_component_utils(full_adder_agent)
+
+  full_adder_driver drv;
+  full_adder_sequencer seqr;
+  
+  function new(string name = "full_adder_agent", uvm_component parent = null);
+    super.new(name, parent);
+  endfunction
+  
+  virtual function void build_phase(uvm_phase phase);
+    super.build_phase(phase);
+    drv = full_adder_driver::type_id::create("drv", this);
+    seqr = full_adder_sequencer::type_id::create("seqr", this);
+  endfunction
+  
+  virtual function void connect_phase(uvm_phase phase);
+    super.connect_phase(phase);
+    drv.seq_item_port.connect(seqr.seq_item_export);
+  endfunction
+
+endclass
+
+class full_adder_env extends uvm_env;
+
+  `uvm_component_utils(full_adder_env)
+
+  full_adder_agent agent;
+  full_adder_monitor monitor;
+  full_adder_scoreboard scoreboard;
+
+  function new(string name = "full_adder_env", uvm_component parent = null);
+    super.new(name, parent);
+  endfunction
+
+  virtual function void build_phase(uvm_phase phase);
+    super.build_phase(phase);
+    agent = full_adder_agent::type_id::create("agent", this);
+    monitor = full_adder_monitor::type_id::create("monitor", this);
+    scoreboard = full_adder_scoreboard::type_id::create("scoreboard", this);
+  endfunction
+
+  virtual function void connect_phase(uvm_phase phase);
+    super.connect_phase(phase);
+    monitor.ap.connect(scoreboard.analysis_imp);
+    uvm_config_db#(virtual full_adder_if)::set(this, "monitor", "vif", full_adder_if_inst);
+    uvm_config_db#(virtual full_adder_if)::set(this, "agent.drv", "vif", full_adder_if_inst);
+  endfunction
+
+endclass
+
+`include "uvm_macros.svh"
+import uvm_pkg::*;
+
+class full_adder_test extends uvm_test;
+
+  `uvm_component_utils(full_adder_test)
+
+  full_adder_env env;
+  full_adder_sequence seq;
+
+  function new(string name = "full_adder_test", uvm_component parent = null);
+    super.new(name, parent);
+  endfunction
+
+  virtual function void build_phase(uvm_phase phase);
+    super.build_phase(phase);
+    env = full_adder_env::type_id::create("env", this);
+    seq = full_adder_sequence::type_id::create("seq");
+  endfunction
+
+  virtual task run_phase(uvm_phase phase);
+    phase.raise_objection(this);
+    `uvm_info("full_adder_test", "Starting full adder sequence...", UVM_LOW)
+    seq.start(env.agent.seqr); // Start the sequence on the agent's sequencer
+    phase.drop_objection(this);
+    `uvm_info("full_adder_test", "Full adder sequence completed.", UVM_LOW)
+  endtask
+
+endclass
+
+
+module tb;
+
+  // Clock and reset signals
+  logic clk;
+  logic reset_n;
+  
+  // Instantiate the Full Adder interface
+  full_adder_if full_adder_if_inst();
+  
+  // Instantiate the Full Adder DUT
+  full_adder dut(.full_adder_if_inst(full_adder_if_inst));
+  
+  // Clock generation
+  always #5 clk = ~clk;
+  
+  initial begin
+    clk = 0;
+    reset_n = 0;
+    #10 reset_n = 1;
+  end
+  
+  // UVM Test
+  initial begin
+    run_test("full_adder_test");
+  end
+
+endmodule
+
+
+
+

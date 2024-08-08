@@ -18,3 +18,63 @@ module simple_register (
     end
 
 endmodule
+
+
+
+`timescale 1ns / 1ps
+
+module tb_simple_register();
+
+    // Declare inputs to the DUT as reg type
+    reg clk;
+    reg rst_n;
+    reg d;
+
+    // Declare output from the DUT as wire type
+    wire q;
+
+    // Instantiate the simple_register module
+    simple_register uut (
+        .clk(clk),
+        .rst_n(rst_n),
+        .d(d),
+        .q(q)
+    );
+
+    // Clock generation: 10ns period (100MHz)
+    always #5 clk = ~clk;
+
+    // Test stimulus
+    initial begin
+        // Initialize inputs
+        clk = 0;
+        rst_n = 0;  // Start with reset active
+        d = 0;
+
+        // Wait for a while and then release reset
+        #20 rst_n = 1;
+
+        // Apply test vectors
+        #10 d = 1;
+        #10 d = 0;
+        #10 d = 1;
+        #10 d = 0;
+
+        // Apply reset in the middle of operation
+        #10 rst_n = 0;
+        #10 rst_n = 1;
+
+        // Apply more test vectors
+        #10 d = 1;
+        #10 d = 0;
+
+        // End simulation
+        #20 $finish;
+    end
+
+    // Monitor the signals
+    initial begin
+        $monitor("Time: %0t | clk: %b | rst_n: %b | d: %b | q: %b", $time, clk, rst_n, d, q);
+    end
+
+endmodule

@@ -1,0 +1,20 @@
+// Define the time unit and time precision
+`timescale 1ns / 1ps
+
+module simple_register (
+    input logic clk,         // Clock signal
+    input logic rst_n,       // Active-low reset signal
+    input logic d,           // Data input
+    output logic q           // Data output
+);
+
+    // Registering process using always_ff
+    always_ff @(posedge clk or negedge rst_n) begin
+        if (!rst_n) begin
+            q <= 1'b0;       // Reset the output to 0
+        end else begin
+            q <= d;          // Capture the input on the rising edge of the clock
+        end
+    end
+
+endmodule

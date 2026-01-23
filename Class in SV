@@ -1,0 +1,29 @@
+class packet;
+  int id;
+  bit[31:0]data;
+  function new(int id = 0, bit[31:0]data = 32'h0);
+    this.id = id;
+    this.data = data;
+  endfunction
+  function void display(string name)
+    $display("[%0s]ID : %0d | Data : 0*%0h",name,id,data);
+  endfunction
+endclass
+
+
+
+TB:
+
+module tb_top;
+  packet pkt1,pkt2;
+  initial begin
+    $display("---Starting Testbench---");
+    pkt1 = new(1,32'hAAAA_BBBB);
+    pkt2 = new();
+    pkt2.id = 2;
+    pkt2.data = 32'hCCCC_DDDD;
+    pkt1.display("Packet1");
+    pkt2.display("Packet2");
+    $display("---Testbench Finished---");
+  end 
+endmodule
